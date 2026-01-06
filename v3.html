@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Time Progress & Journal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 p-6 transition-colors duration-300">
+<div class="max-w-6xl mx-auto space-y-6">
+
+  <!-- DARK MODE TOGGLE -->
+  <div class="flex justify-end mb-4">
+    <button id="darkModeToggle" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+      Toggle Dark Mode
+    </button>
+  </div>
+
+  <!-- ================= PROGRESS GRID ================= -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <!-- DAY -->
+    <section class="bg-white dark:bg-gray-800 p-5 rounded-lg shadow transition-colors">
+      <h2 id="dayLabel" class="font-semibold text-base mb-2 text-gray-800 dark:text-gray-100"></h2>
+      <div class="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+        <span>Day progress</span>
+        <span id="dayPercent" class="font-medium"></span>
+      </div>
+      <div class="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full">
+        <div id="dayBar" class="h-3 rounded-full transition-all duration-300"></div>
+      </div>
+    </section>
+
+    <!-- WEEK -->
+    <section class="bg-white dark:bg-gray-800 p-5 rounded-lg shadow transition-colors">
+      <h2 id="weekLabel" class="font-semibold text-base mb-2 text-gray-800 dark:text-gray-100"></h2>
+      <div class="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+        <span>Week progress</span>
+        <span id="weekPercent" class="font-medium"></span>
+      </div>
+      <div class="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full">
+        <div id="weekBar" class="h-3 rounded-full transition-all"></div>
+      </div>
+    </section>
+
+    <!-- MONTH -->
+    <section class="bg-white dark:bg-gray-800 p-5 rounded-lg shadow transition-colors">
+      <h2 id="monthProgressLabel" class="font-semibold text-base mb-2 text-gray-800 dark:text-gray-100"></h2>
+      <div class="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+        <span>Month progress</span>
+        <span id="monthPercent" class="font-medium"></span>
+      </div>
+      <div class="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full">
+        <div id="monthBar" class="h-3 rounded-full transition-all"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ================= MONTH CALENDAR ================= -->
+  <section class="bg-white dark:bg-gray-800 p-5 rounded-lg shadow transition-colors">
+    <div class="flex items-center justify-between mb-4">
+      <button onclick="changeMonth(-1)" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">←</button>
+      <h2 id="monthLabel" class="font-semibold text-lg text-gray-800 dark:text-gray-100"></h2>
+      <button onclick="changeMonth(1)" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">→</button>
+    </div>
+
+    <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+      <div>Mon</div><div>Tue</div><div>Wed</div>
+      <div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+    </div>
+
+    <div id="calendar" class="grid grid-cols-7 gap-1"></div>
+  </section>
+
+  <!-- ================= JOURNAL ================= -->
+  <section class="bg-white dark:bg-gray-800 p-5 rounded-lg shadow transition-colors">
+    <h2 class="font-semibold text-lg mb-4 text-gray-800 dark:text-gray-100">Journal</h2>
+
+    <div class="flex gap-2 mb-4">
+      <input id="journalInput" type="text" placeholder="Write an entry..." class="flex-1 px-3 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-500">
+      <button id="addJournalBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add</button>
+      <select id="journalFilter" class="px-3 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-500">
+        <option value="all">All</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+      </select>
+      <button id="clearSelectionBtn" class="px-3 py-2 bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 dark:hover:bg-gray-500">Clear Date</button>
+    </div>
+
+    <div id="journalEntries" class="space-y-2 max-h-96 overflow-y-auto"></div>
+  </section>
+
+</div>
+
+<script>
+/* ---------------- DARK MODE ---------------- */
+document.getElementById("darkModeToggle").addEventListener("click", () => {
+  document.documentElement.classList.toggle("dark");
+});
+
+/* ---------------- HELPERS ---------------- */
+const now = () => new Date();
+const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const endOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+const startOfWeek = d => {
+  const day = d.getDay() || 7;
+  const s = new Date(d);
+  s.setDate(d.getDate() - day + 1);
+  s.setHours(0,0,0,0);
+  return s;
+};
+const endOfWeek = d => {
+  const e = startOfWeek(d);
+  e.setDate(e.getDate() + 7);
+  return e;
+};
+const weekNumber = d => {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
+};
+function colorClass(p) {
+  if (p < 40) return "bg-blue-600";
+  if (p < 75) return "bg-amber-500";
+  return "bg-[#4b2e1e]";
+}
+
+/* ---------------- DAY / WEEK / MONTH ---------------- */
+function updateDaySmooth() {
+  const n = now();
+  const start = startOfDay(n);
+  const end = endOfDay(n);
+  const percent = ((n - start) / (end - start)) * 100;
+
+  const bar = document.getElementById("dayBar");
+  bar.style.width = percent + "%";
+  bar.className = `h-3 rounded-full transition-all duration-300 ${colorClass(percent)}`;
+  document.getElementById("dayPercent").textContent = percent.toFixed(2) + "%";
+  document.getElementById("dayLabel").textContent =
+    n.toLocaleDateString("en-GB", { weekday:'long', day:'numeric', month:'long', year:'numeric' }) +
+    ` ${n.toLocaleTimeString()}`;
+  requestAnimationFrame(updateDaySmooth);
+}
+function updateWeek() {
+  const n = now();
+  const percent = ((n - startOfWeek(n)) / (endOfWeek(n) - startOfWeek(n))) * 100;
+  const bar = document.getElementById("weekBar");
+  bar.style.width = percent + "%";
+  bar.className = `h-3 rounded-full transition-all ${colorClass(percent)}`;
+  document.getElementById("weekPercent").textContent = percent.toFixed(1) + "%";
+  document.getElementById("weekLabel").textContent =
+    `Week ${weekNumber(n)} (${startOfWeek(n).toLocaleDateString()} – ${new Date(endOfWeek(n)-1).toLocaleDateString()})`;
+}
+function updateMonthProgress() {
+  const n = now();
+  const start = new Date(n.getFullYear(), n.getMonth(), 1);
+  const end = new Date(n.getFullYear(), n.getMonth() + 1, 1);
+  const percent = ((n - start) / (end - start)) * 100;
+  const bar = document.getElementById("monthBar");
+  bar.style.width = percent + "%";
+  bar.className = `h-3 rounded-full transition-all ${colorClass(percent)}`;
+  document.getElementById("monthPercent").textContent = percent.toFixed(1) + "%";
+  document.getElementById("monthProgressLabel").textContent =
+    n.toLocaleDateString("en-GB", { month:'long', year:'numeric' });
+}
+
+/* ---------------- CALENDAR ---------------- */
+let viewDate = new Date();
+let selectedDate = null;
+
+function renderCalendar() {
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  document.getElementById("monthLabel").textContent =
+    viewDate.toLocaleDateString("en-GB", { month:'long', year:'numeric' });
+
+  const first = new Date(year, month, 1);
+  const offset = ((first.getDay() || 7) - 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayWeek = weekNumber(now());
+
+  for (let i = 0; i < offset; i++) cal.appendChild(document.createElement("div"));
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const cell = document.createElement("button");
+    cell.textContent = d;
+    cell.className = "p-2 rounded text-sm w-full transition-colors";
+
+    const cellDay = startOfDay(date);
+    const cellWeek = weekNumber(date);
+    const today = startOfDay(now());
+
+    if (cellWeek < todayWeek || cellDay < today) cell.classList.add("bg-[#4b2e1e]", "text-white");
+    else if (cellDay.getTime() === today.getTime()) cell.classList.add("bg-blue-600", "text-white");
+    else cell.classList.add("bg-gray-100", "dark:bg-gray-700");
+
+    if (selectedDate && cellDay.getTime() === selectedDate.getTime()) {
+      cell.classList.add("ring-2", "ring-blue-400");
+    }
+
+    cell.addEventListener("click", () => {
+      selectedDate = cellDay;
+      renderCalendar();
+      renderJournal();
+    });
+
+    cal.appendChild(cell);
+  }
+}
+
+function changeMonth(step) {
+  viewDate.setMonth(viewDate.getMonth() + step);
+  renderCalendar();
+}
+
+/* ---------------- JOURNAL ---------------- */
+const JOURNAL_KEY = "journalEntries";
+let allEntries = JSON.parse(localStorage.getItem(JOURNAL_KEY) || "[]");
+
+function renderJournal() {
+  const container = document.getElementById("journalEntries");
+  container.innerHTML = "";
+  const filter = document.getElementById("journalFilter").value;
+  const nowDate = now();
+  const startWeek = startOfWeek(nowDate);
+  const startMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
+
+  allEntries.slice().reverse().forEach((entry, revIdx) => {
+    const idx = allEntries.length - 1 - revIdx;
+    const entryDate = new Date(entry.timestamp);
+
+    if (selectedDate && startOfDay(entryDate).getTime() !== selectedDate.getTime()) return;
+    else if (!selectedDate) {
+      if (filter === "week" && entryDate < startWeek) return;
+      if (filter === "month" && entryDate < startMonth) return;
+    }
+
+    const div = document.createElement("div");
+    div.className = "flex justify-between items-center p-2 rounded bg-gray-100 dark:bg-gray-700";
+
+    const info = document.createElement("div");
+    info.className = "flex-1 space-y-1";
+
+    const timestamp = document.createElement("div");
+    timestamp.textContent = entryDate.toLocaleString();
+    timestamp.className = "text-xs text-gray-500 dark:text-gray-400";
+
+    const text = document.createElement("input");
+    text.value = entry.text;
+    text.className = "w-full px-2 py-1 rounded bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-500";
+    text.addEventListener("change", () => {
+      allEntries[idx].text = text.value;
+      localStorage.setItem(JOURNAL_KEY, JSON.stringify(allEntries));
+      renderJournal();
+    });
+
+    info.appendChild(timestamp);
+    info.appendChild(text);
+
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+    del.className = "ml-2 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700";
+    del.addEventListener("click", () => {
+      allEntries.splice(idx, 1);
+      localStorage.setItem(JOURNAL_KEY, JSON.stringify(allEntries));
+      renderJournal();
+    });
+
+    div.appendChild(info);
+    div.appendChild(del);
+    container.appendChild(div);
+  });
+}
+
+document.getElementById("addJournalBtn").addEventListener("click", () => {
+  const input = document.getElementById("journalInput");
+  if (!input.value.trim()) return;
+  allEntries.push({ text: input.value.trim(), timestamp: now().toISOString() });
+  localStorage.setItem(JOURNAL_KEY, JSON.stringify(allEntries));
+  input.value = "";
+  renderJournal();
+});
+
+document.getElementById("journalFilter").addEventListener("change", renderJournal);
+document.getElementById("clearSelectionBtn").addEventListener("click", () => {
+  selectedDate = null;
+  renderCalendar();
+  renderJournal();
+});
+
+/* ---------------- INIT ---------------- */
+updateDaySmooth();
+setInterval(() => {
+  updateWeek();
+  updateMonthProgress();
+  renderCalendar();
+}, 1000);
+renderJournal();
+</script>
+
+</body>
+</html>
